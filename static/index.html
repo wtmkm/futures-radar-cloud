@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>期货日内分析工具</title>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --ink: #17202a;
+      --muted: #667085;
+      --line: #d9e0e8;
+      --green: #137a48;
+      --red: #bd302b;
+      --blue: #1f5eff;
+      --amber: #a66200;
+      --shadow: 0 12px 32px rgba(18, 30, 45, .10);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Microsoft YaHei", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+    }
+    button, input { font: inherit; }
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 320px 1fr;
+    }
+    aside {
+      background: #111820;
+      color: #f7fafc;
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      letter-spacing: 0;
+    }
+    .sub { color: #b9c2cf; font-size: 13px; line-height: 1.7; }
+    .field { display: grid; gap: 8px; }
+    .symbol-row {
+      display: grid;
+      grid-template-columns: 1fr 42px;
+      gap: 8px;
+    }
+    label { font-size: 13px; color: #cbd5e1; }
+    input {
+      width: 100%;
+      height: 42px;
+      border: 1px solid #2d3a48;
+      border-radius: 6px;
+      padding: 0 12px;
+      color: #fff;
+      background: #1a2430;
+      outline: none;
+    }
+    input:focus { border-color: #7aa2ff; }
+    .seg {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    .source { grid-template-columns: repeat(3, 1fr); }
+    .seg button, .switch, .primary {
+      border: 1px solid #2d3a48;
+      border-radius: 6px;
+      background: #1a2430;
+      color: #dce6f2;
+      height: 40px;
+      cursor: pointer;
+    }
+    .seg button.active {
+      background: #eaf1ff;
+      color: #0f3a8a;
+      border-color: #7aa2ff;
+      font-weight: 700;
+    }
+    .switch {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+    }
+    .switch span:last-child {
+      width: 36px;
+      height: 20px;
+      border-radius: 999px;
+      background: #405063;
+      position: relative;
+    }
+    .switch span:last-child::after {
+      content: "";
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      left: 2px;
+      top: 2px;
+      background: #fff;
+      transition: .2s;
+    }
+    .switch.on span:last-child { background: #2c7be5; }
+    .switch.on span:last-child::after { transform: translateX(16px); }
+    .primary {
+      height: 46px;
+      background: #2c7be5;
+      color: white;
+      border: 0;
+      font-weight: 700;
+    }
+    .icon-btn {
+      width: 42px;
+      height: 42px;
+      border-radius: 6px;
+      border: 1px solid #2d3a48;
+      background: #1a2430;
+      color: #dce6f2;
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+    }
+    .icon-btn.active {
+      background: #fff7e8;
+      color: #a66200;
+      border-color: #f0b35d;
+    }
+    .favorites {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      min-height: 34px;
+    }
+    .fav-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 30px;
+      border-radius: 6px;
+      border: 1px solid #2d3a48;
+      background: #1a2430;
+      color: #dce6f2;
+      padding: 0 8px;
+      cursor: pointer;
+      max-width: 128px;
+      user-select: none;
+    }
+    .fav-chip span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .fav-chip button {
+      border: 0;
+      background: transparent;
+      color: #93a4b8;
+      cursor: pointer;
+      padding: 0;
+    }
+    main {
+      padding: 22px;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 16px;
+    }
+    .topline {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(130px, 1fr));
+      gap: 12px;
+    }
+    .metric, .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+    .metric { padding: 14px; min-height: 82px; }
+    .metric .name { color: var(--muted); font-size: 13px; }
+    .metric .value { margin-top: 8px; font-size: 22px; font-weight: 800; }
+    .metric .value.green { color: var(--green); }
+    .metric .value.red { color: var(--red); }
+    .workspace {
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      gap: 16px;
+      min-height: 0;
+    }
+    .chart-wrap { padding: 14px; min-height: 540px; }
+    .chart-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    canvas {
+      width: 100%;
+      height: 470px;
+      display: block;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+    }
+    .advice { padding: 16px; display: grid; gap: 14px; align-content: start; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 30px;
+      padding: 0 10px;
+      border-radius: 6px;
+      font-weight: 800;
+      width: fit-content;
+    }
+    .badge.long { background: #e9f7ef; color: var(--green); }
+    .badge.short { background: #fff0ee; color: var(--red); }
+    .badge.flat { background: #fff7e8; color: var(--amber); }
+    .advice h2 { margin: 0; font-size: 20px; }
+    .plan { color: #344054; line-height: 1.7; margin: 0; }
+    .levels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .level { border: 1px solid var(--line); border-radius: 6px; padding: 10px; }
+    .level span { display: block; color: var(--muted); font-size: 12px; }
+    .level strong { display: block; margin-top: 5px; font-size: 17px; }
+    .table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .table td { border-top: 1px solid var(--line); padding: 9px 0; }
+    .table td:last-child { text-align: right; font-weight: 700; }
+    .warn {
+      border: 1px solid #ffd18a;
+      background: #fff8e8;
+      color: #744500;
+      border-radius: 6px;
+      padding: 10px;
+      line-height: 1.6;
+      font-size: 13px;
+    }
+    @media (max-width: 980px) {
+      .app { grid-template-columns: 1fr; }
+      aside { position: static; }
+      .topline, .workspace { grid-template-columns: 1fr; }
+      canvas { height: 360px; }
+      .levels { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside>
+      <div>
+        <h1>期货日内分析</h1>
+        <div class="sub">支持 1、5、10、30 分钟周期；接口可由操作者在东方财富、新浪之间切换，另有演示行情用于接口不通时检查策略面板。</div>
+      </div>
+      <div class="field">
+        <label for="symbol">合约代码</label>
+        <div class="symbol-row">
+          <input id="symbol" value="M2609" placeholder="例如 M2609 / AG2609" />
+          <button class="icon-btn" id="favoriteToggle" type="button" title="收藏/取消收藏">★</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>收藏合约</label>
+        <div class="favorites" id="favorites"></div>
+      </div>
+      <div class="field">
+        <label>接口选择</label>
+        <div class="seg source" id="sourceButtons">
+          <button data-source="eastmoney" class="active">东方财富</button>
+          <button data-source="sina">新浪</button>
+          <button data-source="demo">演示</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>K线周期</label>
+        <div class="seg" id="periodButtons">
+          <button data-period="1">1分钟</button>
+          <button data-period="5" class="active">5分钟</button>
+          <button data-period="10">10分钟</button>
+          <button data-period="30">30分钟</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>自动刷新</label>
+        <div class="seg" id="refreshButtons">
+          <button data-refresh="10" class="active">10秒</button>
+          <button data-refresh="30">30秒</button>
+          <button data-refresh="0">关闭</button>
+        </div>
+      </div>
+      <button class="switch on" id="continuous" type="button">
+        <span>连续主连/跨合约</span><span></span>
+      </button>
+      <button class="primary" id="run" type="button">刷新分析</button>
+      <div class="sub">提示：本工具输出为日内辅助研判，不构成投资建议。实盘需结合盘口、持仓、成交量和账户风控。</div>
+    </aside>
+
+    <main>
+      <section class="topline">
+        <div class="metric"><div class="name">最新价</div><div class="value" id="last">--</div></div>
+        <div class="metric"><div class="name">方向建议</div><div class="value" id="action">--</div></div>
+        <div class="metric"><div class="name">趋势评分</div><div class="value" id="score">--</div></div>
+        <div class="metric"><div class="name">波动风险</div><div class="value" id="risk">--</div></div>
+      </section>
+      <section class="workspace">
+        <div class="panel chart-wrap">
+          <div class="chart-head">
+            <span id="chartTitle">等待分析</span>
+            <span id="updatedAt">--</span>
+          </div>
+          <canvas id="chart" width="1100" height="520"></canvas>
+        </div>
+        <div class="panel advice">
+          <div id="warning" class="warn" hidden></div>
+          <span class="badge flat" id="bias">待分析</span>
+          <h2 id="headline">请输入合约并刷新</h2>
+          <p class="plan" id="plan">系统会按所选周期计算短线趋势、动量和波动区间。</p>
+          <div class="levels">
+            <div class="level"><span>参考入场</span><strong id="entry">--</strong></div>
+            <div class="level"><span>止损价</span><strong id="stop">--</strong></div>
+            <div class="level"><span>目标价</span><strong id="target">--</strong></div>
+          </div>
+          <table class="table">
+            <tr><td>MA5</td><td id="ma5">--</td></tr>
+            <tr><td>MA10</td><td id="ma10">--</td></tr>
+            <tr><td>MA20</td><td id="ma20">--</td></tr>
+            <tr><td>MA60</td><td id="ma60">--</td></tr>
+            <tr><td>RSI</td><td id="rsi">--</td></tr>
+            <tr><td>MACD</td><td id="macd">--</td></tr>
+            <tr><td>ATR</td><td id="atr">--</td></tr>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const state = { source: "eastmoney", period: 5, continuous: true, refreshSeconds: 10 };
+    const $ = (id) => document.getElementById(id);
+    const favKey = "futures:favorites";
+    let favorites = loadFavorites();
+    let refreshTimer = null;
+    let isRunning = false;
+
+    document.querySelectorAll("#sourceButtons button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.source = btn.dataset.source;
+        document.querySelectorAll("#sourceButtons button").forEach((b) => b.classList.toggle("active", b === btn));
+      });
+    });
+    document.querySelectorAll("#periodButtons button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.period = Number(btn.dataset.period);
+        document.querySelectorAll("#periodButtons button").forEach((b) => b.classList.toggle("active", b === btn));
+      });
+    });
+    document.querySelectorAll("#refreshButtons button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.refreshSeconds = Number(btn.dataset.refresh);
+        document.querySelectorAll("#refreshButtons button").forEach((b) => b.classList.toggle("active", b === btn));
+        scheduleRefresh();
+      });
+    });
+    $("continuous").addEventListener("click", () => {
+      state.continuous = !state.continuous;
+      $("continuous").classList.toggle("on", state.continuous);
+    });
+    $("run").addEventListener("click", run);
+    $("symbol").addEventListener("keydown", (event) => {
+      if (event.key === "Enter") run();
+    });
+    $("symbol").addEventListener("input", updateFavoriteButton);
+    $("favoriteToggle").addEventListener("click", toggleFavorite);
+
+    function cleanSymbol(value) {
+      return (value || "").trim().replace(/[^0-9a-zA-Z]/g, "").toUpperCase();
+    }
+
+    function loadFavorites() {
+      try {
+        const list = JSON.parse(localStorage.getItem(favKey) || "[]");
+        return Array.isArray(list) ? list.filter(Boolean).slice(0, 24) : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function saveFavorites() {
+      localStorage.setItem(favKey, JSON.stringify(favorites));
+      renderFavorites();
+      updateFavoriteButton();
+    }
+
+    function toggleFavorite() {
+      const symbol = cleanSymbol($("symbol").value || "M2609");
+      $("symbol").value = symbol;
+      if (!symbol) return;
+      if (favorites.includes(symbol)) {
+        favorites = favorites.filter((item) => item !== symbol);
+      } else {
+        favorites = [symbol, ...favorites.filter((item) => item !== symbol)].slice(0, 24);
+      }
+      saveFavorites();
+    }
+
+    function renderFavorites() {
+      const box = $("favorites");
+      box.innerHTML = "";
+      if (!favorites.length) {
+        const empty = document.createElement("span");
+        empty.className = "sub";
+        empty.textContent = "暂无收藏";
+        box.appendChild(empty);
+        return;
+      }
+      favorites.forEach((symbol) => {
+        const chip = document.createElement("div");
+        chip.className = "fav-chip";
+        chip.tabIndex = 0;
+        chip.setAttribute("role", "button");
+        chip.title = `切换到 ${symbol}`;
+        chip.innerHTML = `<span>${symbol}</span><button type="button" title="移除">×</button>`;
+        const selectFavorite = () => {
+          $("symbol").value = symbol;
+          updateFavoriteButton();
+          run();
+        };
+        chip.addEventListener("click", selectFavorite);
+        chip.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            selectFavorite();
+          }
+        });
+        chip.querySelector("button").addEventListener("click", (event) => {
+          event.stopPropagation();
+          favorites = favorites.filter((item) => item !== symbol);
+          saveFavorites();
+        });
+        box.appendChild(chip);
+      });
+    }
+
+    function updateFavoriteButton() {
+      const symbol = cleanSymbol($("symbol").value);
+      $("favoriteToggle").classList.toggle("active", favorites.includes(symbol));
+      $("favoriteToggle").title = favorites.includes(symbol) ? "取消收藏" : "收藏合约";
+    }
+
+    async function run() {
+      if (isRunning) return;
+      isRunning = true;
+      $("run").disabled = true;
+      $("run").textContent = "分析中...";
+      try {
+        const rawSymbol = cleanSymbol($("symbol").value || "M2609");
+        $("symbol").value = rawSymbol;
+        updateFavoriteButton();
+        const symbol = encodeURIComponent(rawSymbol);
+        const url = `/api/analyze?symbol=${symbol}&source=${state.source}&period=${state.period}&continuous=${state.continuous ? 1 : 0}`;
+        const res = await fetch(url);
+        const payload = await res.json();
+        if (!payload.ok) throw new Error(payload.error || "分析失败");
+        render(payload);
+      } catch (err) {
+        $("warning").hidden = false;
+        $("warning").textContent = err.message;
+      } finally {
+        $("run").disabled = false;
+        $("run").textContent = "刷新分析";
+        isRunning = false;
+        scheduleRefresh();
+      }
+    }
+
+    function scheduleRefresh() {
+      if (refreshTimer) {
+        clearTimeout(refreshTimer);
+        refreshTimer = null;
+      }
+      if (state.refreshSeconds > 0 && !isRunning) {
+        refreshTimer = setTimeout(run, state.refreshSeconds * 1000);
+      }
+    }
+
+    function render(payload) {
+      const a = payload.analysis;
+      const m = payload.meta;
+      $("last").textContent = a.last;
+      $("action").textContent = a.action;
+      $("score").textContent = a.score;
+      $("risk").textContent = a.risk;
+      const providerText = m.provider && m.provider !== m.source ? `${m.sourceName}→${m.providerName}` : m.sourceName;
+      $("headline").textContent = `${m.requestSymbol} · ${m.period}分钟 · ${providerText}`;
+      $("plan").textContent = a.plan;
+      $("entry").textContent = a.entry;
+      $("stop").textContent = a.stop;
+      $("target").textContent = a.target;
+      ["ma5", "ma10", "ma20", "ma60", "rsi", "macd", "atr"].forEach((id) => $(id).textContent = a[id]);
+      $("chartTitle").textContent = `${m.quoteName} ${m.continuous ? "连续跨合约" : "当前合约"} K线`;
+      $("updatedAt").textContent = `更新时间 ${m.updatedAt}`;
+      $("warning").hidden = !payload.warning;
+      $("warning").textContent = payload.warning || "";
+
+      const bias = $("bias");
+      bias.textContent = a.bias;
+      bias.className = "badge " + (a.bias === "多头" ? "long" : a.bias === "空头" ? "short" : "flat");
+      $("action").className = "value " + (a.bias === "多头" ? "green" : a.bias === "空头" ? "red" : "");
+      drawChart(payload.bars, a);
+    }
+
+    function drawChart(bars, analysis) {
+      const canvas = $("chart");
+      const ctx = canvas.getContext("2d");
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+      const pad = { l: 56, r: 16, t: 18, b: 38 };
+      const prices = bars.flatMap((b) => [b.high, b.low, analysis.ma20, analysis.ma60]);
+      const min = Math.min(...prices);
+      const max = Math.max(...prices);
+      const scaleY = (p) => pad.t + (max - p) / (max - min || 1) * (h - pad.t - pad.b);
+      const candleW = Math.max(3, (w - pad.l - pad.r) / bars.length * .62);
+      ctx.strokeStyle = "#d9e0e8";
+      ctx.lineWidth = 1;
+      ctx.font = "12px Microsoft YaHei, Arial";
+      ctx.fillStyle = "#667085";
+      for (let i = 0; i < 5; i++) {
+        const y = pad.t + i * (h - pad.t - pad.b) / 4;
+        const price = max - i * (max - min) / 4;
+        ctx.beginPath();
+        ctx.moveTo(pad.l, y);
+        ctx.lineTo(w - pad.r, y);
+        ctx.stroke();
+        ctx.fillText(price.toFixed(2), 8, y + 4);
+      }
+      bars.forEach((b, i) => {
+        const x = pad.l + i * (w - pad.l - pad.r) / (bars.length - 1);
+        const up = b.close >= b.open;
+        ctx.strokeStyle = up ? "#bd302b" : "#137a48";
+        ctx.fillStyle = up ? "#bd302b" : "#137a48";
+        ctx.beginPath();
+        ctx.moveTo(x, scaleY(b.high));
+        ctx.lineTo(x, scaleY(b.low));
+        ctx.stroke();
+        const y = Math.min(scaleY(b.open), scaleY(b.close));
+        const bh = Math.max(2, Math.abs(scaleY(b.open) - scaleY(b.close)));
+        ctx.fillRect(x - candleW / 2, y, candleW, bh);
+      });
+      drawLine(ctx, bars.map((b) => b.close), "#1f5eff", pad, w, h, min, max);
+      ctx.fillStyle = "#17202a";
+      ctx.fillText("蓝线：收盘价走势", pad.l, h - 12);
+    }
+
+    function drawLine(ctx, values, color, pad, w, h, min, max) {
+      const y = (p) => pad.t + (max - p) / (max - min || 1) * (h - pad.t - pad.b);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      values.forEach((value, i) => {
+        const x = pad.l + i * (w - pad.l - pad.r) / (values.length - 1);
+        if (i === 0) ctx.moveTo(x, y(value)); else ctx.lineTo(x, y(value));
+      });
+      ctx.stroke();
+    }
+
+    renderFavorites();
+    updateFavoriteButton();
+    run();
+  </script>
+</body>
+</html>
