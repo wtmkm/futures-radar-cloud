@@ -445,7 +445,7 @@ class Handler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/analyze":
             self.handle_analyze(parsed)
             return
-        if parsed.path == "/api/health":
+        if parsed.path in {"/api/health", "/health"}:
             self.send_json({"ok": True, "time": time.time()})
             return
         super().do_GET()
